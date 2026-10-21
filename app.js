@@ -1,52 +1,37 @@
-// =========================================================================
-// PUENTE GITHUB PAGES -> GOOGLE APPS SCRIPT (google.script.run emulado)
-// =========================================================================
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZ0_WRuym0zVc4_P0FVMyC-PV_IG_qPZH9Zr93rPW6Je8odm6kgqYEMZN3B-1C9Z_6/exec";
 
-window.google = {
-  script: {
-    run: {
-      withSuccessHandler: function(successFn) {
-        this.successFn = successFn;
-        return this;
-      },
-      withFailureHandler: function(failureFn) {
-        this.failureFn = failureFn;
-        return this;
-      },
-      // Intercepta cualquier llamada a funciones del backend (.gs)
-      // y las redirige mediante POST a tu Web App de Google Apps Script
-      __call: function(fnName, args) {
+function createRunner(successFn, failureFn) {
+  return new Proxy({}, {
+    get(_, prop) {
+      if (typeof prop === "symbol" || prop === "then") return undefined;
+      if (prop === "withSuccessHandler") return fn => createRunner(fn, failureFn);
+      if (prop === "withFailureHandler") return fn => createRunner(successFn, fn);
+      if (prop === "withUserObject") return () => createRunner(successFn, failureFn);
+
+      return (...args) => {
         fetch(APPS_SCRIPT_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "text/plain;charset=utf-8" // <-- Vital para evitar bloqueos CORS
-          },
-          body: JSON.stringify({ function: fnName, arguments: args })
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ function: prop, arguments: args })
         })
-        .then(response => response.text())
-        .then(text => {
-          try {
-            const data = JSON.parse(text);
-            if (this.successFn) this.successFn(data);
-          } catch (err) {
-            if (this.failureFn) this.failureFn(text);
-          }
-        })
-        .catch(err => {
-          if (this.failureFn) this.failureFn(err);
-        });
-      }
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then(text => {
+            let data;
+            try { data = JSON.parse(text); }
+            catch (e) { throw new Error("Respuesta no válida del servidor: " + text.slice(0, 200)); }
+            // Tu backend devuelve el resultado tal cual; los errores van como {exito:false}
+            if (successFn) successFn(data);
+          })
+          .catch(err => {
+            if (failureFn) failureFn(err);
+            else console.error("google.script.run error:", err);
+          });
+      };
     }
-  }
-};
+  });
+}
 
-// Automatiza el enrutamiento dinámico de funciones Apps Script desde el frontend
-const handler = {
-  get: function(target, prop) {
-    return function(...args) {
-      target.__call(prop, args);
-    };
-  }
-};
-window.google.script.run = new Proxy(window.google.script.run, handler);
+window.google = { script: { run: createRunner() } };
