@@ -1,0 +1,10 @@
+{
+  "name": "Cuaderno Digital Asamblea",
+  "short_name": "Cuaderno",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ece4d3",
+  "theme_color": "#2d4a8a",
+  "icons": []
+}
