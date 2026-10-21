@@ -1,53 +1,34 @@
-const CACHE_NAME = 'cuaderno-asamblea-v1';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './app.js',
-  './manifest.json'
-];
+const CACHE = 'cuaderno-v1';
+const ARCHIVOS = ['./', './index.html', './app.js', './manifest.json'];
 
-// Instalación: guarda los archivos clave en la caché del navegador
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)));
   self.skipWaiting();
 });
 
-// Activación: limpia cachés antiguas si las hubiera
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-      );
-    })
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-// Interceptación de peticiones: sirve primero desde la caché, y si falla recurre a la red
-self.addEventListener('fetch', event => {
-  // Las peticiones al backend de Google Apps Script se gestionan aparte (intentan red, si no hay fallan con localStorage)
-  if (event.request.url.includes('script.google.com')) {
-    return; 
-  }
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  // Las llamadas a Google siempre a la red, nunca desde caché
+  if (url.hostname.includes('google.com') || url.hostname.includes('googleusercontent.com')) return;
+  if (e.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then(response => {
-        return caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, response.clone());
-          return response;
-        });
-      }).catch(() => {
-        // Si no hay red y el recurso no está en caché, se puede devolver una página offline de fallback si se desea
-      });
+  e.respondWith(
+    caches.match(e.request).then(cacheado => {
+      const red = fetch(e.request).then(resp => {
+        if (resp && resp.ok) {
+          const copia = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copia));
+        }
+        return resp;
+      }).catch(() => cacheado || caches.match('./index.html'));
+      return cacheado || red;
     })
   );
 });
