@@ -1,30 +1,1455 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="papel">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi App Offline</title>
-    <!-- Tailwind CSS para diseño rápido y moderno -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2d4a8a">
+  <title>Cuaderno Digital Asamblea</title>
+  <script>
+    try {
+      var t = localStorage.getItem('tema_global_preferido');
+      if (['papel', 'pizarra', 'menta', 'lavanda', 'rosa'].indexOf(t) < 0) t = 'papel';
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+  <style>
+    :root {
+      --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+      --mono: ui-monospace, Menlo, Consolas, monospace;
+      --note-font: var(--sans); --note-size: 17px; --r: 16px;
+      --live: #d33a35;
+    }
+    html[data-theme="papel"]   { --bg:#ece4d3; --surface:#fbf7ec; --surface2:#efe7d4; --ink:#2b2a33; --muted:#7d7664; --accent:#2d4a8a; --accent-ink:#ffffff; --accent-soft:#dde5f5; --line:#d9cfb8; --paper:#fffdf6; --rule:#cfdbec; --margin:#e59a9a; }
+    html[data-theme="pizarra"] { color-scheme: dark; --bg:#12151c; --surface:#1a1f29; --surface2:#232a36; --ink:#e8ecf3; --muted:#8c97a8; --accent:#6fb3ff; --accent-ink:#0b1220; --accent-soft:#1f3350; --line:#2b3342; --paper:#1d222c; --rule:#2a3240; --margin:#6b3f4d; }
+    html[data-theme="menta"]   { --bg:#e0efe9; --surface:#f4faf7; --surface2:#d3e7df; --ink:#1c3a33; --muted:#5f8178; --accent:#168a6e; --accent-ink:#ffffff; --accent-soft:#cfeee4; --line:#bcd9cf; --paper:#fdfffe; --rule:#cfe6df; --margin:#f0b6a8; }
+    html[data-theme="lavanda"] { --bg:#e9e5f6; --surface:#f7f5fd; --surface2:#ddd7f0; --ink:#2d2748; --muted:#7a73a0; --accent:#6a4fc9; --accent-ink:#ffffff; --accent-soft:#e3dcfa; --line:#d1c9ec; --paper:#fffdff; --rule:#ddd6f3; --margin:#f2b8d0; }
+    html[data-theme="rosa"]    { --bg:#f9e7ef; --surface:#fff8fa; --surface2:#f7dbe6; --ink:#4a3b4c; --muted:#8f7a93; --accent:#b02a63; --accent-ink:#ffffff; --accent-soft:#fce0ec; --line:#efc9d8; --paper:#fffafc; --rule:#f3d9e4; --margin:#e8a0b8; }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; background: var(--bg); }
+    body { font-family: var(--sans); color: var(--ink); overflow: hidden; }
+    button { font-family: inherit; color: inherit; border: none; cursor: pointer; background: none; padding: 0; }
+    button:active { transform: scale(.97); }
+    input, textarea, select { font-family: inherit; color: var(--ink); }
+    .hidden { display: none !important; }
+    .grow { flex: 1; }
+
+    /* ---------- ESTRUCTURA ---------- */
+    #app { height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); }
+    .sidebar { display: none; }
+    .workspace { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--line); padding: calc(10px + env(safe-area-inset-top)) 14px 10px; flex: none; }
+    .tb-row { display: flex; align-items: center; gap: 8px; }
+    .prog-btn { display: flex; align-items: center; gap: 10px; background: var(--accent-soft); color: var(--accent); padding: 9px 13px; border-radius: 14px; font-weight: 700; font-size: 14px; min-width: 0; max-width: 62%; }
+    .prog-btn .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill { font-size: 12px; font-weight: 700; padding: 7px 11px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill.ok   { background: rgba(47,160,90,.16);  color: #2a8a4f; }
+    .pill.busy { background: rgba(214,158,0,.2);   color: #a87400; }
+    .pill.off  { background: rgba(220,60,55,.16);  color: #c0332e; }
+    .icon { width: 44px; height: 44px; border-radius: 50%; background: var(--surface2); font-size: 20px; font-weight: 700; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+
+    .talk-head { padding-top: 10px; }
+    .chips-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .chip { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 8px; background: var(--surface2); color: var(--muted); }
+    .chip.mono { font-family: var(--mono); background: var(--accent); color: var(--accent-ink); }
+    .chip.live { background: rgba(220,60,55,.15); color: var(--live); }
+    .talk-head h2 { margin: 7px 0 0; font-family: var(--serif); font-size: 19px; line-height: 1.25; font-weight: 600; display: flex; gap: 8px; align-items: flex-start; }
+    .talk-head h2 .favmark { color: #e0a100; flex: none; }
+
+    .stage { flex: 1; min-height: 0; position: relative; }
+    .welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; text-align: center; color: var(--muted); }
+    .welcome img { max-width: 100%; max-height: 62%; object-fit: contain; border-radius: var(--r); }
+    .welcome .big { font-size: 44px; }
+    .welcome h3 { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 20px; }
+    .welcome p { margin: 0; font-size: 14px; max-width: 360px; line-height: 1.5; }
+    .btn { padding: 13px 18px; border-radius: 14px; font-weight: 700; font-size: 15px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+    .btn.primary { background: var(--accent); color: var(--accent-ink); }
+    .btn.danger { background: rgba(220,60,55,.12); color: #c0332e; }
+    .btn[disabled] { opacity: .5; pointer-events: none; }
+
+    .editor { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 12px 14px 0; }
+    #notas { flex: 1; min-height: 0; width: 100%; resize: none; border: 1.5px solid var(--line); border-radius: var(--r); background: var(--surface); padding: 16px 18px; font-family: var(--note-font); font-size: var(--note-size); line-height: 1.7; outline: none; }
+    #notas:focus { border-color: var(--accent); }
+    .editor-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); padding: 6px 4px; }
+
+    .dock { flex: none; display: flex; gap: 8px; align-items: center; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+    .dk { height: 50px; min-width: 50px; padding: 0 12px; border-radius: 15px; background: var(--accent-soft); color: var(--accent); font-size: 22px; font-weight: 700; }
+    .dk.wide { flex: 1; font-size: 15px; background: var(--accent); color: var(--accent-ink); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dk.on { color: #e0a100; }
+
+    /* ---------- LISTA DEL PROGRAMA (panel lateral y hoja del móvil) ---------- */
+    .list-host { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    .lh-search { display: flex; gap: 8px; padding: 4px 2px 8px; }
+    .lh-input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-size: 16px; outline: none; }
+    .lh-input:focus { border-color: var(--accent); }
+    .mini { padding: 0 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; flex: none; }
+    .lh-chips { display: flex; gap: 8px; padding: 0 2px 8px; flex-wrap: wrap; }
+    .chipbtn { padding: 8px 13px; border-radius: 99px; background: var(--surface2); font-size: 13px; font-weight: 700; color: var(--muted); }
+    .chipbtn.on { background: var(--accent); color: var(--accent-ink); }
+    .chipbtn.live { background: rgba(220,60,55,.14); color: var(--live); }
+    .list-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 2px 20px; -webkit-overflow-scrolling: touch; }
+    .tabs { display: flex; gap: 6px; padding: 2px 0 8px; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+    .tab { flex: 1; padding: 10px 6px; border-radius: 12px; background: var(--surface2); color: var(--muted); font-weight: 700; font-size: 13px; }
+    .tab.on { background: var(--accent); color: var(--accent-ink); }
+    .sess { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 12px 8px 4px; }
+    .row { display: flex; gap: 10px; align-items: flex-start; padding: 11px 10px; border-radius: 12px; border: 1.5px solid transparent; cursor: pointer; }
+    .row:hover { background: var(--surface2); }
+    .row.on { background: var(--accent-soft); border-color: var(--accent); }
+    .row.live { box-shadow: inset 3px 0 0 var(--live); }
+    .time { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); min-width: 44px; padding-top: 3px; }
+    .ttl { flex: 1; font-size: 14.5px; line-height: 1.32; min-width: 0; }
+    .ttl small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .tags { display: flex; align-items: center; gap: 6px; flex: none; }
+    .dotnote { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .star { font-size: 21px; line-height: 1; color: var(--muted); opacity: .55; padding: 2px 4px; }
+    .star.on { color: #e0a100; opacity: 1; }
+    .vacio { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 12px; line-height: 1.5; }
+
+    /* ---------- BARRA LATERAL (tablet) ---------- */
+    .sb-top { padding: calc(12px + env(safe-area-inset-top)) 12px 8px; }
+    .sb-top .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 4px 6px; }
+    .sb-top .prog-btn { width: 100%; max-width: 100%; justify-content: space-between; }
+    .sidebar .list-host { padding: 0 10px; }
+
+    /* ---------- CHAT IA ---------- */
+    .chatpane { display: none; flex-direction: column; background: var(--surface); min-height: 0; }
+    .chatpane.open { display: flex; position: fixed; inset: 0; z-index: 70; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    .cp-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 700; }
+    .cp-msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { padding: 11px 13px; border-radius: 14px; max-width: 88%; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+    .msg.bot { background: var(--accent-soft); color: var(--ink); border-top-left-radius: 4px; align-self: flex-start; }
+    .msg.me { background: var(--accent); color: var(--accent-ink); border-top-right-radius: 4px; align-self: flex-end; }
+    .msg.err { background: rgba(220,60,55,.12); color: #c0332e; align-self: flex-start; }
+    .cp-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+    .cp-input input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); font-size: 16px; outline: none; }
+
+    /* ---------- HOJAS Y VENTANAS ---------- */
+    .backdrop { position: fixed; inset: 0; background: rgba(10,10,20,.55); z-index: 60; display: none; align-items: flex-end; justify-content: center; }
+    .backdrop.open { display: flex; }
+    .sheet { background: var(--surface); width: 100%; max-width: 640px; max-height: 90dvh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 10px 18px calc(20px + env(safe-area-inset-bottom)); animation: up .2s ease-out; }
+    .sheet.tall { height: 90dvh; display: flex; flex-direction: column; overflow: hidden; }
+    .sheet.wide { max-width: 860px; }
+    @keyframes up { from { transform: translateY(34px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .grab { width: 42px; height: 5px; background: var(--line); border-radius: 99px; margin: 0 auto 14px; flex: none; }
+    .sheet h2 { margin: 0 0 12px; font-family: var(--serif); font-size: 22px; }
+    .sheet p.hint { margin: 8px 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+    .mi { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; padding: 13px 14px; margin-bottom: 8px; border-radius: 14px; background: var(--bg); font-size: 15.5px; font-weight: 600; }
+    .mi .ico { font-size: 21px; width: 28px; text-align: center; flex: none; }
+    .mi small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 1px; }
+    .mi.danger { color: #c0332e; }
+    .grp { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 16px 4px 8px; }
+    .field { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); font-size: 16px; outline: none; }
+    .field:focus { border-color: var(--accent); }
+    textarea.field { resize: none; line-height: 1.5; }
+    .lbl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin: 14px 0 6px; }
+    .swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sw { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1.5px var(--line); }
+    .sw.on { border-color: var(--ink); }
+    .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--surface2); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 8px; }
+    .seg button { padding: 10px; border-radius: 9px; font-weight: 700; font-size: 13px; color: var(--muted); }
+    .seg button.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .ctl { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg); border-radius: 14px; padding: 8px 8px 8px 14px; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+    .ctl .btns { display: flex; gap: 6px; }
+    .ctl .btns button { width: 44px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-weight: 800; }
+
+    .mh { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .mh h2 { margin: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding: 4px 0; }
+    .card { position: relative; border-radius: 16px; border: 2px solid var(--line); background: var(--surface); overflow: hidden; cursor: pointer; }
+    .card.on { border-color: var(--accent); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+    .card .thumb { aspect-ratio: 3 / 4; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
+    .card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .card .nm { padding: 8px 8px; font-size: 12px; font-weight: 700; text-align: center; border-top: 1px solid var(--line); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card .here { font-size: 11px; font-weight: 700; text-align: center; padding: 5px; color: var(--live); background: rgba(220,60,55,.1); }
+    .card .tagon { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px; }
+    .card .cbtns { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
+    .card .cbtns button { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.92); font-size: 15px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+    .add-box { background: var(--bg); border-radius: 16px; padding: 14px; margin-top: 12px; }
+    .add-box .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .add-box .btnrow .btn { flex: 1; min-width: 200px; }
+
+    .pv-row { border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 8px; display: grid; grid-template-columns: 1fr 1fr 84px 38px; gap: 6px; background: var(--surface); }
+    .pv-row .tema { grid-column: 1 / -1; }
+    .pv-row input { width: 100%; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); font-size: 14px; }
+    .pv-row button { border-radius: 9px; background: rgba(220,60,55,.12); }
+    .pv-meta { display: grid; grid-template-columns: 1fr 170px; gap: 10px; }
+    @media (max-width: 560px) { .pv-meta { grid-template-columns: 1fr; } }
+
+    #toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top)); z-index: 120; background: #1c261f; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 14px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,.3); max-width: 92%; text-align: center; display: none; }
+    #toast a { color: #ffd766; font-weight: 700; margin-left: 8px; }
+
+    /* ---------- PROGRAMA COMPLETO ---------- */
+    .sb-full { width: 100%; margin-top: 8px; padding: 11px 14px; font-size: 14px; }
+    .pc-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+    .pc-tab { flex: none; padding: 10px 20px; border-radius: 12px; background: var(--surface2); color: var(--muted); font-weight: 700; font-size: 13px; }
+    .pc-tab.on { background: var(--accent); color: var(--accent-ink); }
+    .pc-ses { margin-bottom: 26px; }
+    .pc-head { text-align: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 10px; }
+    .pc-head h3 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 24px; letter-spacing: .06em; text-transform: uppercase; }
+    .pc-head p { margin: 2px 0 0; font-size: 12px; font-style: italic; color: var(--muted); }
+    .pc-item { display: flex; gap: 14px; align-items: baseline; padding: 10px; border-radius: 12px; cursor: pointer; border: 1.5px solid transparent; }
+    .pc-item:hover { background: var(--surface2); }
+    .pc-item.on { background: var(--accent-soft); border-color: var(--accent); }
+    .pc-item.live { box-shadow: inset 3px 0 0 var(--live); }
+    .pc-hora { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); min-width: 46px; flex: none; }
+    .pc-item p { margin: 0; font-weight: 600; line-height: 1.35; flex: 1; min-width: 0; }
+    .pc-item small { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+    .pc-item .dotnote { flex: none; align-self: center; }
+    /* =====================================================================
+       DISEÑO «LÍNEA DE TIEMPO Y LIBRETA»
+       ===================================================================== */
+    :root { --paper: var(--surface); --rule: var(--line); --margin: var(--accent-soft); }
+    .workspace { background: var(--bg); }
+
+    /* barra superior discreta */
+    .topbar { background: transparent; border-bottom: none; padding: calc(8px + env(safe-area-inset-top)) 12px 6px; }
+    .pill, .icon, .prog-btn { background: var(--surface); border: 1px solid var(--line); }
+    .prog-btn { color: var(--ink); }
+    .pill.ok { background: rgba(47,160,90,.14); } .pill.busy { background: rgba(214,158,0,.16); } .pill.off { background: rgba(220,60,55,.13); }
+
+    /* línea de tiempo: vertical en el panel lateral y en la hoja del programa */
+    .row { position: relative; padding-left: 38px; }
+    .row::before { content: ''; position: absolute; left: 10px; top: 15px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--accent); z-index: 1; }
+    .row.hasnote::before { background: var(--accent); }
+    .row::after { content: ''; position: absolute; left: 15px; top: 30px; bottom: -13px; width: 2px; background: var(--line); }
+    .tl > .row:last-child::after { display: none; }
+    .row.live { box-shadow: none; }
+    .row.live::before { background: var(--live); border-color: var(--live); animation: pulso 1.6s infinite; }
+    .row.on { border-color: transparent; }
+    .row.on::before { transform: scale(1.25); }
+    .row .dotnote { display: none; }
+    @keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(211,58,53,.5); } 70% { box-shadow: 0 0 0 9px rgba(211,58,53,0); } 100% { box-shadow: 0 0 0 0 rgba(211,58,53,0); } }
+    .sess { padding-left: 38px; }
+
+    /* tira horizontal de discursos (móvil) */
+    .strip { flex: none; padding: 0 12px 4px; }
+    .strip.list-host { flex: none; }
+    .strip .lh-search, .strip .lh-chips { display: none; }
+    .strip .list-body { overflow: visible; padding: 0; flex: none; }
+    .strip .tabs { position: static; background: none; padding: 0 0 8px; }
+    .strip .tab { background: var(--surface); border: 1px solid var(--line); }
+    .strip .tab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    .strip .tl { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .strip .tl::-webkit-scrollbar { display: none; }
+    .strip .row { flex: none; width: 172px; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; scroll-snap-align: start; }
+    .strip .row::before, .strip .row::after { display: none; }
+    .strip .row .dotnote { display: block; }
+    .strip .row.hasnote { border-bottom: 3px solid var(--accent); }
+    .strip .row.live { border-color: var(--live); }
+    .strip .row.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    .strip .row.on .time, .strip .row.on .ttl small { color: inherit; }
+    .strip .ttl { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .strip .tags { position: absolute; top: 6px; right: 6px; }
+    .strip .dotnote { display: none !important; }
+    .strip .star { font-size: 18px; }
+    .strip .sess { flex: none; align-self: center; writing-mode: vertical-rl; transform: rotate(180deg); padding: 0 2px; font-size: 10px; }
+    .strip .vacio { padding: 12px; }
+
+    /* hoja de libreta */
+    .editor { padding: 6px 12px 10px; }
+    .page { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: 8px 20px 20px 8px; box-shadow: 0 1px 0 var(--line), 0 14px 34px rgba(40,30,10,.14); }
+    .page::before { content: ''; position: absolute; left: 42px; top: 0; bottom: 0; width: 2px; background: var(--margin); opacity: .8; pointer-events: none; z-index: 1; }
+    .page::after { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 18px; background: radial-gradient(circle at 9px 20px, var(--bg) 5px, transparent 6px) 0 0 / 18px 40px repeat-y; pointer-events: none; }
+    .page .talk-head { padding: 12px 18px 10px 56px; border-bottom: 1px solid var(--rule); }
+    .page .talk-head h2 { font-size: 20px; }
+    .page #notas { --lh: calc(var(--note-size) * 1.8); flex: 1; min-height: 0; margin-top: 6px; border: none; border-radius: 0; background-color: transparent; background-image: linear-gradient(to bottom, transparent calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px)); background-size: 100% var(--lh); background-attachment: local; line-height: var(--lh); padding: 0 18px 12px 56px; }
+    .page .editor-foot { padding: 6px 18px 8px 56px; border-top: 1px solid var(--rule); background: var(--paper); position: relative; z-index: 2; }
+    .welcome { background: transparent; }
+
+    /* barra de acciones flotante */
+    .dock { align-self: center; margin: 4px auto calc(10px + env(safe-area-inset-bottom)); padding: 6px; gap: 6px; border: 1px solid var(--line); border-radius: 28px; box-shadow: 0 10px 28px rgba(0,0,0,.2); background: var(--surface); }
+    .dk { height: 46px; min-width: 46px; padding: 0 8px; border-radius: 20px; font-size: 20px; }
+
+    body.focus .strip { display: none !important; }
+    @media (min-width: 900px) {
+      .strip { display: none; }
+      .editor { padding: 8px 22px 10px; }
+      .page .talk-head h2 { font-size: 23px; }
+      .topbar { padding-left: 22px; padding-right: 22px; }
+      .dock { margin-bottom: 14px; }
+    }
+
+    #btnSalirFocus { position: fixed; right: 14px; top: calc(12px + env(safe-area-inset-top)); z-index: 55; background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,.2); padding: 9px 14px; border-radius: 99px; font-weight: 700; font-size: 13px; }
+
+    /* ---------- MODO ENFOQUE ---------- */
+    body.focus .sidebar, body.focus .dock, body.focus .topbar { display: none !important; }
+    body.focus #app { grid-template-columns: minmax(0, 1fr) !important; }
+
+    /* ---------- TABLET Y PANTALLAS ANCHAS ---------- */
+    @media (min-width: 900px) {
+      #app { grid-template-columns: 340px minmax(0, 1fr); }
+      #app.chat-open { grid-template-columns: 340px minmax(0, 1fr) 380px; }
+      .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-right: 1px solid var(--line); }
+      .phone-only { display: none !important; }
+      .talk-head h2 { font-size: 22px; }
+      .editor { padding: 16px 22px 0; }
+      .topbar { padding-left: 22px; padding-right: 22px; }
+      .chatpane.open { position: static; z-index: auto; padding: 0; border-left: 1px solid var(--line); }
+      .backdrop { align-items: center; }
+      .sheet { border-radius: 24px; }
+    }
+  </style>
 </head>
-<body class="bg-slate-100 p-6">
-    <div class="max-w-md mx-auto bg-white rounded-xl shadow-md p-6">
-        <div id="estado-conexion" class="mb-4 p-2 text-center text-sm rounded font-semibold"></div>
-        
-        <h1 class="text-xl font-bold mb-4">Gestor Offline Sheets</h1>
-        
-        <!-- Formulario de ejemplo -->
-        <form id="mi-form" class="space-y-3">
-            <input type="text" id="campo1" placeholder="Dato importante" required class="w-full p-2 border rounded">
-            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded font-semibold">Guardar</button>
-        </form>
+<body>
+  <div id="toast"></div>
+  <button id="btnSalirFocus" class="hidden" data-act="focus">✕ Salir del modo enfoque</button>
 
-        <div class="mt-6">
-            <h2 class="font-bold text-gray-700">Registros locales:</h2>
-            <div id="lista-datos" class="mt-2 space-y-2 text-sm"></div>
+  <div id="app">
+
+    <!-- ===== BARRA LATERAL (solo tablet / pantalla ancha) ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-top">
+        <div class="eyebrow" id="owner">Cuaderno de asamblea</div>
+        <button class="prog-btn" data-act="openProgramas"><span>🖼️</span><span class="nm nombreProg">Programas</span><span>▾</span></button>
+        <button class="btn sb-full" data-act="openCompleto">📖 Ver programa completo</button>
+      </div>
+      <div class="list-host" id="listHostSide"></div>
+    </aside>
+
+    <!-- ===== ESPACIO DE TRABAJO ===== -->
+    <section class="workspace">
+      <header class="topbar">
+        <div class="tb-row">
+          <button class="prog-btn phone-only" data-act="openProgramas"><span>🖼️</span><span class="nm nombreProg">Programas</span></button>
+          <span class="grow"></span>
+          <button id="estadoConexion" class="pill busy" data-act="verErrorSync" title="Toca para ver el detalle si algo falló">Conectando…</button>
+          <button class="icon" data-act="openMenu" aria-label="Menú">⋯</button>
         </div>
-    </div>
+      </header>
 
-    <script src="app.js"></script>
+      <div class="strip list-host" id="listHostStrip"></div>
+
+      <main class="stage">
+        <div id="welcome" class="welcome">
+          <img id="imgBienvenida" class="hidden" alt="Imagen de bienvenida">
+          <div id="welcomeEmpty">
+            <div class="big">📖</div>
+            <h3>Elige un discurso</h3>
+            <p>Abre el programa y toca el discurso del que quieras tomar notas. Se guardan en este dispositivo y se sincronizan con Google Sheets cuando hay internet.</p>
+          </div>
+          <button class="btn primary phone-only" data-act="openLista">📖 Abrir el programa</button>
+        </div>
+
+        <div id="editor" class="editor hidden">
+          <div class="page">
+          <div id="talkHead" class="talk-head hidden">
+            <div class="chips-row">
+              <span class="chip" id="etiquetaDia">--</span>
+              <span class="chip" id="etiquetaSesion">--</span>
+              <span class="chip mono" id="etiquetaHora">--:--</span>
+              <span class="chip live hidden" id="chipLive">🔴 En directo</span>
+            </div>
+            <h2><span class="favmark hidden" id="favMark">★</span><span id="tituloDiscurso"></span></h2>
+          </div>
+            <textarea id="notas" placeholder="Escribe tus notas aquí…"></textarea>
+            <div class="editor-foot"><span id="guardadoTxt">Listo</span><span id="palabras">0 palabras</span></div>
+          </div>
+        </div>
+      </main>
+
+      <nav class="dock">
+        <button class="dk" data-act="prev" aria-label="Discurso anterior">‹</button>
+        <button class="dk phone-only" data-act="openLista" aria-label="Buscar en el programa">🔎<span id="dockTxt" class="hidden"></span></button>
+        <button class="dk" id="dockFav" data-act="favActual" aria-label="Favorito">☆</button>
+        <button class="dk" data-act="openCompleto" aria-label="Programa completo">📖</button>
+        <button class="dk" data-act="toggleChat" aria-label="Chat con IA">💬</button>
+        <button class="dk" data-act="next" aria-label="Discurso siguiente">›</button>
+      </nav>
+    </section>
+
+    <!-- ===== CHAT IA ===== -->
+    <aside class="chatpane" id="chatPane">
+      <div class="cp-head"><span>💬 Pregúntale a Gemini sobre tus notas</span><button class="icon" data-act="toggleChat">✕</button></div>
+      <div class="cp-msgs" id="chatMsgs">
+        <div class="msg bot">¡Hola! Conozco el programa y tus notas de esta asamblea. ¿Qué quieres repasar?</div>
+      </div>
+      <div class="cp-input">
+        <input id="chatInput" type="text" placeholder="Ej: ¿Qué consejos se dieron sobre la familia?" autocomplete="off">
+        <button class="btn primary" data-act="enviarChat">Enviar</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== PROGRAMA (hoja del móvil) ===== -->
+  <div class="backdrop" id="sheetLista">
+    <div class="sheet tall">
+      <div class="grab"></div>
+      <div class="mh"><h2>📖 Programa</h2><button class="icon" data-act="close">✕</button></div>
+      <button class="btn" data-act="openCompleto" style="margin-bottom:8px">📖 Ver programa completo</button>
+      <div class="list-host" id="listHostSheet"></div>
+    </div>
+  </div>
+
+  <!-- ===== MENÚ ===== -->
+  <div class="backdrop" id="sheetMenu">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h2>Opciones</h2>
+
+      <button class="mi" data-act="openCompleto"><span class="ico">📖</span><span>Ver programa completo<small>Todos los días y sesiones de un vistazo</small></span></button>
+      <button class="mi" data-act="openProgramas"><span class="ico">🖼️</span><span>Programas<small>Cambiar, añadir o borrar asambleas</small></span></button>
+      <button class="mi" data-act="openMetas"><span class="ico">🎯</span><span>Mis metas y reflexiones</span></button>
+      <button class="mi" data-act="sincronizar"><span class="ico">🔄</span><span>Sincronizar ahora<small>Programa, notas, favoritos y metas con Google Sheets</small></span></button>
+
+      <div class="grp">Exportar</div>
+      <button class="mi" data-act="pdfActual"><span class="ico">📄</span><span>PDF de este discurso</span></button>
+      <button class="mi" data-act="pdfTodos"><span class="ico">🗂️</span><span>PDF de todas mis notas</span></button>
+
+      <div class="grp">Copia de seguridad (Drive)</div>
+      <button class="mi" data-act="crearRespaldo"><span class="ico">☁️</span><span>Crear copia</span></button>
+      <button class="mi" data-act="restaurarRespaldo"><span class="ico">♻️</span><span>Restaurar copia<small>Recupera las notas desde un archivo de Drive</small></span></button>
+
+      <div class="grp">Apariencia</div>
+      <div class="swatches" id="swatches"></div>
+      <div class="seg" id="segFuente">
+        <button data-act="fuente" data-v="font-sans">Sans</button>
+        <button data-act="fuente" data-v="font-serif">Serif</button>
+        <button data-act="fuente" data-v="font-mono">Mono</button>
+      </div>
+      <div class="ctl"><span>Tamaño de letra · <span id="tamLabel">Mediano</span></span><span class="btns"><button data-act="tamMenos">A−</button><button data-act="tamMas">A+</button></span></div>
+      <button class="mi" data-act="focus"><span class="ico">🔲</span><span>Modo enfoque<small>Solo el texto, sin menús</small></span></button>
+      <label class="mi" for="inputImagen"><span class="ico">🖼️</span><span>Imagen de bienvenida<small>La que se ve cuando no hay discurso elegido</small></span></label>
+      <input type="file" id="inputImagen" accept="image/*" class="hidden">
+      <button class="mi hidden" id="miQuitarImg" data-act="quitarImagen"><span class="ico">✖️</span><span>Quitar imagen de bienvenida</span></button>
+
+      <div class="grp">Mi nombre</div>
+      <input id="inputNombre" class="field" type="text" placeholder="Tu nombre…" autocomplete="given-name">
+
+      <div class="grp">Datos de este dispositivo</div>
+      <button class="mi danger" data-act="borrarLocal"><span class="ico">🗑️</span><span>Borrar datos locales<small>Elimina las notas que aún no se hayan sincronizado</small></span></button>
+    </div>
+  </div>
+
+  <!-- ===== PROGRAMAS DE ASAMBLEA ===== -->
+  <div class="backdrop" id="modalProgramas">
+    <div class="sheet wide">
+      <div class="grab"></div>
+      <div class="mh"><h2>🖼️ Mis programas de asamblea</h2><button class="icon" data-act="close">✕</button></div>
+      <div id="gridProgramas" class="grid"></div>
+      <p id="gridVacio" class="vacio hidden">Todavía no tienes ningún programa. Añade uno con los botones de abajo.</p>
+
+      <div class="add-box">
+        <b>➕ Añadir un programa nuevo</b>
+        <div class="btnrow">
+          <button class="btn primary" data-act="jwOrg">1️⃣ Descargar el PDF en jw.org</button>
+          <button class="btn" data-act="extraerDrive">2️⃣ Ya lo subí a Drive → leer con IA</button>
+        </div>
+        <p class="hint">El paso 1 abre jw.org en otra pestaña. Súbelo después a tu carpeta de asambleas en Drive y pulsa el paso 2: se lee con IA y podrás revisarlo antes de guardarlo.</p>
+        <p class="hint"><label for="inputPdf" style="text-decoration:underline;cursor:pointer">O elige aquí el PDF descargado</label> y se sube solo a Drive (en el móvil puede fallar según el navegador; entonces usa el paso 2).</p>
+        <input type="file" id="inputPdf" accept="application/pdf" class="hidden">
+        <p class="hint">¿Una serie de discursos aparece junta en una sola línea? <button data-act="reparar" style="text-decoration:underline;color:var(--accent);font-weight:700">🔧 Repararla en el programa activo</button></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROGRAMA COMPLETO ===== -->
+  <div class="backdrop" id="modalCompleto">
+    <div class="sheet wide">
+      <div class="grab"></div>
+      <div class="mh"><h2>📖 Programa completo de la asamblea</h2><button class="icon" data-act="close">✕</button></div>
+      <div id="pcTabs" class="pc-tabs"></div>
+      <div id="pcContenido"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn primary" data-act="close">Cerrar</button></div>
+    </div>
+  </div>
+
+  <!-- ===== REVISAR ANTES DE GUARDAR ===== -->
+  <div class="backdrop" id="modalPreview" data-lock="1">
+    <div class="sheet wide" style="max-height:94dvh">
+      <div class="grab"></div>
+      <div class="mh"><h2>🔎 Revisa el programa</h2><button class="btn" data-act="cancelarPreview">✕ Cancelar</button></div>
+      <p class="hint">Esto es lo que la IA ha entendido del PDF. Corrige lo que haga falta (una serie mal separada, una hora, una fila que sobra) y confirma. Si cancelas no se guarda nada.</p>
+      <div class="pv-meta">
+        <div><label class="lbl" for="pvNombre">Nombre de la asamblea</label><input id="pvNombre" class="field" type="text" data-pv="nombre"></div>
+        <div><label class="lbl" for="pvFecha">Fecha (1er día)</label><input id="pvFecha" class="field" type="date" data-pv="fecha"></div>
+      </div>
+      <p class="hint">Con la fecha, la app sabe qué día es «hoy» y marca el discurso en directo. Si dura varios días, pon el primero (viernes).</p>
+      <div id="pvFilas" style="margin-top:8px"></div>
+      <div class="row-btns" style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" style="flex:1" data-act="cancelarPreview">❌ Cancelar</button>
+        <button class="btn primary" style="flex:1" data-act="confirmarPreview">✅ Confirmar y guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== METAS Y REFLEXIONES ===== -->
+  <div class="backdrop" id="modalMetas">
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="mh"><h2>🎯 Metas y reflexión personal</h2><button class="icon" data-act="closeMetas">✕</button></div>
+      <p class="hint" style="text-align:center;font-style:italic">«Pon estas cosas en práctica; entrégate de lleno a ellas» (1 Timoteo 4:15)</p>
+      <label class="lbl" for="metaAplicacion">¿Cómo pondré en práctica lo que aprendí?</label>
+      <textarea id="metaAplicacion" class="field" rows="3" placeholder="Tus metas de aplicación práctica…"></textarea>
+      <label class="lbl" for="metaPuntosClave">Puntos clave que no quiero olvidar</label>
+      <textarea id="metaPuntosClave" class="field" rows="3" placeholder="Recordatorios o ideas principales…"></textarea>
+      <label class="lbl" for="metaReflexion">Reflexión y gratitud</label>
+      <textarea id="metaReflexion" class="field" rows="3" placeholder="Tus pensamientos de cierre…"></textarea>
+      <div class="row-btns" style="display:flex;gap:8px;margin-top:14px;align-items:center">
+        <span id="estadoMetas" class="hint" style="flex:1;text-align:left;margin:0">Guardado en el dispositivo</span>
+        <button class="btn primary" data-act="guardarMetas">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  keys() { const r = []; try { for (let i = 0; i < localStorage.length; i++) r.push(localStorage.key(i)); } catch (e) {} return r; },
+  json(k, def) { try { const v = JSON.parse(store.get(k)); return v == null ? def : v; } catch (e) { return def; } }
+};
+function gs(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(e => reject(new Error(e && e.message ? e.message : String(e))))[fn](...args);
+  });
+}
+function toast(msg, url) {
+  const t = $('toast');
+  t.textContent = msg;
+  if (url) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Abrir'; t.appendChild(a); }
+  t.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.style.display = 'none', url ? 8000 : 3200);
+}
+let ultimoErrorSync = '';
+function estado(texto, kind) { const p = $('estadoConexion'); p.textContent = texto; p.className = 'pill' + (kind ? ' ' + kind : ''); }
+function guardarUltimoErrorSync(origen, detalle) {
+  ultimoErrorSync = '[' + new Date().toLocaleTimeString() + '] ' + origen + ': ' + detalle;
+  console.error(ultimoErrorSync);
+}
+const normDia = s => String(s || 'General').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function formatearFechaISO(f) { return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0'); }
+
+/* =========================================================
+   CLAVES DE ALMACENAMIENTO (las mismas de siempre: tus notas se conservan)
+   ========================================================= */
+const K = {
+  PROG: 'cache_programa_asamblea_v1', IMG: 'imagen_bienvenida_usuario_v1', NOMBRE: 'nombre_usuario_asamblea_v1',
+  FAV: 'cuaderno_asamblea_favoritos_v1', LISTA: 'mis_asambleas', ACTIVA: 'ASAMBLEA_ACTIVA_KEY',
+  TEMA: 'tema_global_preferido', FUENTE: 'preferencia_fuente', TAM: 'preferencia_tamanio', METAS: 'asamblea_mis_metas'
+};
+const ASAMBLEA_DEFECTO = { id: 'MIGRADO_INICIAL', sheetName: 'Programa_Asamblea', nombre: 'Asamblea 2026 (Principal)' };
+window.asambleaActiva = store.get(K.ACTIVA) || ASAMBLEA_DEFECTO.id;
+
+const claveNota = id => 'nota_asamblea_' + window.asambleaActiva + '_' + id;
+const claveNotaTS = id => claveNota(id) + '_ts';
+const claveCola = () => 'cola_sync_' + window.asambleaActiva;
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+let listaDiscursos = [];
+let discursoActualId = null;
+let discursoEnDirectoId = null;
+let soloFav = false;
+let termino = '';
+let diaListado = null;
+let ultimaEscritura = 0;
+let timerSync = null;
+
+/* =========================================================
+   ASAMBLEAS (lista local + servidor)
+   ========================================================= */
+function obtenerListaAsambleas() {
+  let l = store.json(K.LISTA, []);
+  if (!Array.isArray(l) || !l.length) l = [ASAMBLEA_DEFECTO];
+  return l;
+}
+function guardarListaAsambleas(l) { store.set(K.LISTA, JSON.stringify(l)); }
+function obtenerSheetNamePorId(id) {
+  const a = obtenerListaAsambleas().find(x => x.id === id);
+  return a ? a.sheetName : ASAMBLEA_DEFECTO.sheetName;
+}
+function obtenerNombreHojaNotas() {
+  const sn = obtenerSheetNamePorId(window.asambleaActiva);
+  return sn === 'Programa_Asamblea' ? 'NotasAsamblea' : 'Notas_' + sn;
+}
+function nombreAsambleaActiva() {
+  const a = obtenerListaAsambleas().find(x => x.id === window.asambleaActiva);
+  return a ? a.nombre : 'Programas';
+}
+function actualizarNombreBoton() { $$('.nombreProg').forEach(e => e.textContent = nombreAsambleaActiva()); }
+
+async function inicializarSelectorAsambleas() {
+  try {
+    const res = await gs('listarAsambleasDisponibles');
+    if (res && res.exito && res.asambleas && res.asambleas.length) guardarListaAsambleas(res.asambleas);
+  } catch (e) { /* sin conexión: seguimos con lo guardado */ }
+  pintarSelectorAsambleas();
+}
+function pintarSelectorAsambleas() {
+  const l = obtenerListaAsambleas();
+  if (!l.some(a => a.id === window.asambleaActiva)) {
+    window.asambleaActiva = l[0].id;
+    store.set(K.ACTIVA, window.asambleaActiva);
+  }
+  actualizarNombreBoton();
+  renderGridProgramas();
+  cargarDatosAsambleaActiva();
+}
+function cargarDatosAsambleaActiva() {
+  const local = store.json('programa_' + window.asambleaActiva, null);
+  if (local && local.length) {
+    listaDiscursos = local;
+    renderTodo();
+    estado('Modo local', 'busy');
+    if (navigator.onLine) { sincronizarNotas(); sincronizarGlobales(); }
+  } else {
+    cargarDiscursos();
+  }
+}
+async function cargarDiscursos() {
+  estado('Conectando…', 'busy');
+  try {
+    const res = await gs('obtenerProgramaAsamblea', obtenerSheetNamePorId(window.asambleaActiva));
+    if (!res || !res.exito || !res.discursos || !res.discursos.length) {
+      guardarUltimoErrorSync('Cargar programa', res && res.error ? res.error : 'El programa llegó vacío.');
+      if (!listaDiscursos.length) { estado('Sin datos · toca aquí', 'off'); renderTodo(); }
+      else estado('Sin conexión · usando lo guardado', 'busy');
+      return;
+    }
+    listaDiscursos = res.discursos;
+    store.set(K.PROG, JSON.stringify(listaDiscursos));
+    store.set('programa_' + window.asambleaActiva, JSON.stringify(listaDiscursos));
+    renderTodo();
+    estado('Sincronizado', 'ok');
+    sincronizarNotas();
+    sincronizarGlobales();
+  } catch (e) {
+    guardarUltimoErrorSync('Cargar programa (conexión)', e.message);
+    if (navigator.onLine) estado('Error al cargar el programa · toca aquí', 'off');
+    else estado(listaDiscursos.length ? 'Sin conexión · modo local' : 'Sin conexión', listaDiscursos.length ? 'busy' : 'off');
+  }
+}
+
+/* =========================================================
+   DISCURSO EN DIRECTO
+   ========================================================= */
+function obtenerFechaAsambleaActiva() {
+  const a = obtenerListaAsambleas().find(x => x.id === window.asambleaActiva);
+  return a && a.fecha ? a.fecha : null;
+}
+function estaAsambleaEsHoy(fecha) {
+  if (!fecha) return false;
+  const hoy = formatearFechaISO(new Date());
+  const base = new Date(fecha + 'T00:00:00');
+  for (let o = 0; o <= 2; o++) { const d = new Date(base); d.setDate(d.getDate() + o); if (formatearFechaISO(d) === hoy) return true; }
+  return false;
+}
+function calcularDiscursoEnDirectoId() {
+  if (!listaDiscursos.length) return null;
+  const fecha = obtenerFechaAsambleaActiva();
+  let cand;
+  if (fecha) {
+    const offsets = { viernes: 0, sabado: 1, domingo: 2 };
+    const base = new Date(fecha + 'T00:00:00');
+    const hoy = formatearFechaISO(new Date());
+    cand = listaDiscursos.filter(d => {
+      const o = Object.prototype.hasOwnProperty.call(offsets, normDia(d.dia)) ? offsets[normDia(d.dia)] : 0;
+      const f = new Date(base); f.setDate(f.getDate() + o);
+      return formatearFechaISO(f) === hoy;
+    });
+    if (!cand.length) return null;
+  } else {
+    const dias = [...new Set(listaDiscursos.map(d => normDia(d.dia)))];
+    cand = listaDiscursos;
+    if (dias.length > 1) {
+      const nombres = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+      const hoy = nombres[new Date().getDay()];
+      cand = listaDiscursos.filter(d => normDia(d.dia) === hoy);
+      if (!cand.length) return null;
+    }
+  }
+  const ahora = new Date();
+  const hora = String(ahora.getHours()).padStart(2, '0') + ':' + String(ahora.getMinutes()).padStart(2, '0');
+  let actual = null;
+  cand.forEach(d => { if (d.hora && d.hora <= hora && (!actual || d.hora >= actual.hora)) actual = d; });
+  return actual ? actual.id : null;
+}
+
+/* =========================================================
+   FAVORITOS
+   ========================================================= */
+function obtenerFavoritos() { const f = store.json(K.FAV, []); return Array.isArray(f) ? f : []; }
+function toggleFavorito(id) {
+  const f = obtenerFavoritos(); const i = f.indexOf(id);
+  if (i > -1) f.splice(i, 1); else f.push(id);
+  store.set(K.FAV, JSON.stringify(f));
+  store.set(K.FAV + '_ts', String(Date.now()));
+  marcarGlobalPendiente('favoritos');
+  renderLista(); actualizarCabecera(); programarSync();
+}
+
+/* =========================================================
+   LISTA DEL PROGRAMA (panel lateral + hoja del móvil)
+   ========================================================= */
+function construirListHost(host) {
+  host.innerHTML =
+    '<div class="lh-search"><input type="search" class="lh-input" placeholder="🔍 Buscar en programa y notas…" autocomplete="off">' +
+    '<button class="mini" data-act="wol" title="Buscar en JW online">JW</button></div>' +
+    '<div class="lh-chips"><button class="chipbtn" data-act="soloFav">★ Favoritos <b class="fav-count">0</b></button>' +
+    '<button class="chipbtn live hidden" data-act="irAhora">🔴 Ir al de ahora</button></div>' +
+    '<div class="list-body"></div>';
+  host.querySelector('.lh-input').addEventListener('input', e => {
+    termino = e.target.value;
+    $$('.lh-input').forEach(i => { if (i !== e.target) i.value = termino; });
+    renderLista();
+  });
+}
+function filaHTML(d, favs, t, contexto) {
+  const nota = store.get(claveNota(d.id)) || '';
+  const activo = d.id === discursoActualId, live = d.id === discursoEnDirectoId, fav = favs.includes(d.id);
+  const enNotas = t && nota.toLowerCase().includes(t);
+  let sub = '';
+  if (contexto) sub += esc((d.dia || '') + ' · ' + (d.sesion || ''));
+  if (enNotas) sub += (sub ? ' · ' : '') + 'coincidencia en tus notas';
+  return '<div class="row' + (activo ? ' on' : '') + (live ? ' live' : '') + (nota.trim() ? ' hasnote' : '') + '" data-id="' + esc(d.id) + '">' +
+    '<span class="time">' + esc(d.hora || '') + '</span>' +
+    '<span class="ttl">' + (live ? '🔴 ' : '') + esc(d.tema) + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+    '<span class="tags">' + (nota.trim() ? '<i class="dotnote" title="Tiene notas"></i>' : '') +
+    '<button class="star' + (fav ? ' on' : '') + '" data-act="fav" data-id="' + esc(d.id) + '" aria-label="Favorito">★</button></span></div>';
+}
+function renderLista() {
+  discursoEnDirectoId = calcularDiscursoEnDirectoId();
+  const favs = obtenerFavoritos();
+  const t = termino.toLowerCase().trim();
+
+  const dias = [];
+  listaDiscursos.forEach(d => { const k = normDia(d.dia); if (!dias.some(x => x.k === k)) dias.push({ k: k, label: d.dia || 'General' }); });
+  if (!diaListado || !dias.some(x => x.k === diaListado)) {
+    const live = listaDiscursos.find(d => d.id === discursoEnDirectoId);
+    const act = listaDiscursos.find(d => d.id === discursoActualId);
+    diaListado = live ? normDia(live.dia) : act ? normDia(act.dia) : (dias[0] ? dias[0].k : null);
+  }
+
+  const plano = !!t || soloFav;
+  let html = '';
+  if (!listaDiscursos.length) {
+    html = '<div class="vacio">Aún no hay ningún programa cargado.<br>Pulsa «Programas» para añadir el de tu asamblea.</div>';
+  } else if (plano) {
+    const filas = listaDiscursos.filter(d => {
+      if (soloFav && !favs.includes(d.id)) return false;
+      if (!t) return true;
+      return [d.tema, d.dia, d.sesion, store.get(claveNota(d.id)) || ''].some(x => String(x || '').toLowerCase().includes(t));
+    });
+    html = filas.length ? filas.map(d => filaHTML(d, favs, t, true)).join('')
+      : '<div class="vacio">' + (soloFav && !t ? 'Aún no tienes favoritos.<br>Toca la ★ de un discurso para añadirlo.' : 'No se encontró «' + esc(termino) + '» en el programa ni en tus notas.') + '</div>';
+  } else {
+    if (dias.length > 1) {
+      html += '<div class="tabs">' + dias.map(x => '<button class="tab' + (x.k === diaListado ? ' on' : '') + '" data-act="dia" data-dia="' + esc(x.k) + '">' + esc(x.label) + '</button>').join('') + '</div>';
+    }
+    const delDia = listaDiscursos.filter(d => normDia(d.dia) === diaListado);
+    const sesiones = [];
+    delDia.forEach(d => { const s = d.sesion || 'Sesión'; if (!sesiones.includes(s)) sesiones.push(s); });
+    sesiones.forEach(s => {
+      html += '<div class="sess">' + esc(s) + '</div>';
+      html += delDia.filter(d => (d.sesion || 'Sesión') === s).map(d => filaHTML(d, favs, '', false)).join('');
+    });
+  }
+
+  // las filas van dentro de «.tl» (línea de tiempo) para mostrarlas en vertical o en horizontal
+  const iTabs = html.indexOf('<div class="tabs">') === 0 ? html.indexOf('</div>') + 6 : 0;
+  html = html.slice(0, iTabs) + '<div class="tl">' + html.slice(iTabs) + '</div>';
+
+  $$('.list-host').forEach(h => {
+    const body = h.querySelector('.list-body'); if (!body) return;
+    const top = body.scrollTop;
+    body.innerHTML = html;
+    body.scrollTop = top;
+    h.querySelector('.fav-count').textContent = favs.length;
+    h.querySelector('[data-act="soloFav"]').classList.toggle('on', soloFav);
+    h.querySelector('[data-act="irAhora"]').classList.toggle('hidden', !discursoEnDirectoId);
+  });
+  $$('.row.on').forEach(r => { if (r.scrollIntoView && !r.closest('.sheet')) r.scrollIntoView({ block: 'nearest', inline: 'center' }); });
+}
+
+function actualizarCabecera() {
+  const d = listaDiscursos.find(x => x.id === discursoActualId);
+  const favs = obtenerFavoritos();
+  const esFav = d && favs.includes(d.id);
+  $('talkHead').classList.toggle('hidden', !d);
+  $('editor').classList.toggle('hidden', !d);
+  $('welcome').classList.toggle('hidden', !!d);
+  $('dockFav').textContent = esFav ? '★' : '☆';
+  $('dockFav').classList.toggle('on', !!esFav);
+  if (d) {
+    $('etiquetaDia').textContent = d.dia || '--';
+    $('etiquetaSesion').textContent = d.sesion || '--';
+    $('etiquetaHora').textContent = d.hora || '--:--';
+    $('tituloDiscurso').textContent = d.tema;
+    $('favMark').classList.toggle('hidden', !esFav);
+    $('chipLive').classList.toggle('hidden', d.id !== discursoEnDirectoId);
+    $('dockTxt').textContent = (d.hora || '') + ' · ' + d.tema;
+  } else {
+    $('dockTxt').textContent = 'Programa';
+  }
+}
+/* ---------- Programa completo (ventana con pestañas por día) ---------- */
+let diaPC = null;
+function renderProgramaCompleto() {
+  const tabs = $('pcTabs'), cont = $('pcContenido');
+  if (!tabs || !cont) return;
+  const dias = [];
+  listaDiscursos.forEach(d => { const k = normDia(d.dia); if (!dias.some(x => x.k === k)) dias.push({ k: k, label: d.dia || 'General' }); });
+  if (!diaPC || !dias.some(x => x.k === diaPC)) {
+    const act = listaDiscursos.find(d => d.id === discursoActualId);
+    diaPC = act ? normDia(act.dia) : (dias[0] ? dias[0].k : null);
+  }
+  tabs.innerHTML = dias.length > 1
+    ? dias.map(x => '<button class="pc-tab' + (x.k === diaPC ? ' on' : '') + '" data-act="pcDia" data-dia="' + esc(x.k) + '">' + esc(x.label) + '</button>').join('')
+    : '';
+
+  const delDia = listaDiscursos.filter(d => normDia(d.dia) === diaPC);
+  const etiquetaDia = (dias.find(x => x.k === diaPC) || {}).label || '';
+  const enDirecto = calcularDiscursoEnDirectoId();
+  const sesiones = [];
+  delDia.forEach(d => { const s = d.sesion || 'Sesión'; if (!sesiones.includes(s)) sesiones.push(s); });
+
+  cont.innerHTML = sesiones.map(s =>
+    '<section class="pc-ses"><div class="pc-head"><h3>' + esc(etiquetaDia) + '</h3><p>' + esc(s) + '</p></div>' +
+    delDia.filter(d => (d.sesion || 'Sesión') === s).map(d => {
+      const tieneNota = (store.get(claveNota(d.id)) || '').trim();
+      return '<div class="pc-item' + (d.id === discursoActualId ? ' on' : '') + (d.id === enDirecto ? ' live' : '') + '" data-id="' + esc(d.id) + '">' +
+        '<span class="pc-hora">' + esc(d.hora || '') + '</span>' +
+        '<p><small>' + esc(d.sesion || 'Discurso') + '</small>' + (d.id === enDirecto ? '🔴 ' : '') + esc(d.tema) + '</p>' +
+        (tieneNota ? '<i class="dotnote" title="Tiene notas"></i>' : '') + '</div>';
+    }).join('') + '</section>'
+  ).join('') || '<div class="vacio">Aún no hay ningún programa cargado.</div>';
+}
+function abrirProgramaCompleto() {
+  if (!listaDiscursos.length) { toast('Aún no hay programa cargado'); return; }
+  renderProgramaCompleto();
+  openLayer('modalCompleto');
+}
+
+function renderTodo() {
+  renderLista(); actualizarCabecera(); renderGridProgramas();
+  if ($('modalCompleto').classList.contains('open')) renderProgramaCompleto();
+}
+
+/* =========================================================
+   SELECCIÓN Y NAVEGACIÓN DE DISCURSOS
+   ========================================================= */
+function seleccionarDiscurso(id) {
+  if (discursoActualId) guardarNotaActual();
+  const d = listaDiscursos.find(x => x.id === id);
+  if (!d) return;
+  discursoActualId = id;
+  diaListado = normDia(d.dia);
+  $('notas').value = store.get(claveNota(id)) || '';
+  actualizarPalabras();
+  $('guardadoTxt').textContent = 'Guardado en el dispositivo ✓';
+  actualizarCabecera();
+  renderLista();
+  closeSheets();
+  $('welcome').classList.add('hidden');
+}
+function navegar(dir) {
+  if (!listaDiscursos.length) return;
+  const i = listaDiscursos.findIndex(d => d.id === discursoActualId);
+  const n = i < 0 ? 0 : Math.max(0, Math.min(listaDiscursos.length - 1, i + dir));
+  seleccionarDiscurso(listaDiscursos[n].id);
+}
+
+/* =========================================================
+   NOTAS (siempre primero en local; la nube cuando hay internet)
+   ========================================================= */
+function marcarNotaComoModificada(id) {
+  store.set(claveNotaTS(id), String(Date.now()));
+  const cola = store.json(claveCola(), []);
+  if (!cola.includes(id)) { cola.push(id); store.set(claveCola(), JSON.stringify(cola)); }
+}
+function guardarNotaActual() {
+  if (!discursoActualId) return;
+  const texto = $('notas').value;
+  const previo = store.get(claveNota(discursoActualId)) || '';
+  if (texto === previo) return;                 // no se marca como "modificada" si no ha cambiado nada
+  store.set(claveNota(discursoActualId), texto);
+  marcarNotaComoModificada(discursoActualId);
+  $('guardadoTxt').textContent = navigator.onLine ? 'Guardado en el dispositivo ✓' : 'Sin internet · guardado en el dispositivo ✓';
+  renderLista();
+  programarSync();
+}
+function actualizarPalabras() {
+  const t = $('notas').value.trim();
+  const n = t ? t.split(/\s+/).length : 0;
+  $('palabras').textContent = n + (n === 1 ? ' palabra' : ' palabras');
+}
+function programarSync() {
+  clearTimeout(timerSync);
+  if (!navigator.onLine) return;
+  timerSync = setTimeout(() => { sincronizarNotas(); sincronizarGlobales(); }, 5000);
+}
+
+let sincNotas = false;
+async function sincronizarNotas(manual) {
+  if (sincNotas || !navigator.onLine || !listaDiscursos.length) return;
+  const datos = [];
+  listaDiscursos.forEach(d => {
+    const nota = store.get(claveNota(d.id));
+    const ts = parseInt(store.get(claveNotaTS(d.id)) || '0', 10);
+    // También se envían las notas que se vaciaron a propósito (ts > 0), para que no "resuciten" desde Sheets
+    if ((nota && nota.trim()) || ts > 0) {
+      datos.push({ id: d.id, dia: d.dia || 'General', sesion: d.sesion || 'Sesión', hora: d.hora || '--:--', tema: d.tema || 'Sin tema', nota: (nota || '').trim(), ts: ts });
+    }
+  });
+  sincNotas = true;
+  estado('Sincronizando notas…', 'busy');
+  try {
+    const res = await gs('sincronizarNotasJSON', datos, obtenerNombreHojaNotas());
+    if (!res || !res.exito) {
+      guardarUltimoErrorSync('Sincronizar notas', res ? (res.error || 'El servidor respondió sin éxito.') :
+        'El servidor devolvió una respuesta vacía. Suele pasar cuando Sheets convierte alguna hora en fecha: aplica el parche de sincronización en Código.gs.');
+      estado('Error al sincronizar · toca aquí', 'off');
+      return;
+    }
+    const act = res.actualizaciones || [];
+    act.forEach(it => {
+      store.set(claveNota(it.id), it.nota || '');
+      store.set(claveNotaTS(it.id), String(it.ts || Date.now()));
+      if (it.id === discursoActualId) { $('notas').value = it.nota || ''; actualizarPalabras(); }
+    });
+    store.del(claveCola());
+    estado(act.length ? 'Sincronizado · ' + act.length + ' nota(s) actualizada(s)' : 'Notas sincronizadas ✓', 'ok');
+    if (act.length) renderLista();
+    if (manual) toast('☁️ Notas sincronizadas con Google Sheets');
+  } catch (e) {
+    guardarUltimoErrorSync('Sincronizar notas (conexión)', e.message);
+    if (navigator.onLine) estado('Error al sincronizar · toca aquí', 'off');
+    else estado('Sin conexión · guardado en el dispositivo', 'busy');
+  } finally { sincNotas = false; }
+}
+
+/* ---------- Favoritos y metas (datos globales) ---------- */
+function marcarGlobalPendiente(clave) {
+  const cola = store.json('cola_sync_global', []);
+  if (!cola.includes(clave)) { cola.push(clave); store.set('cola_sync_global', JSON.stringify(cola)); }
+}
+async function sincronizarGlobales() {
+  if (!navigator.onLine) return;
+  const payload = {};
+  const fav = store.get(K.FAV);
+  if (fav) payload.favoritos = { valor: JSON.parse(fav), ts: parseInt(store.get(K.FAV + '_ts') || '0', 10) };
+  const metas = store.get(K.METAS);
+  if (metas) payload.metas = { valor: JSON.parse(metas), ts: parseInt(store.get(K.METAS + '_ts') || '0', 10) };
+  if (!Object.keys(payload).length) return;
+  try {
+    const res = await gs('sincronizarDatosGlobalesJSON', payload);
+    if (!res || !res.exito) { guardarUltimoErrorSync('Sincronizar favoritos/metas', res && res.error ? res.error : 'Sin detalle'); return; }
+    const a = res.actualizaciones || {};
+    if (a.favoritos) {
+      store.set(K.FAV, JSON.stringify(a.favoritos.valor));
+      store.set(K.FAV + '_ts', String(a.favoritos.ts || Date.now()));
+      renderLista(); actualizarCabecera();
+    }
+    if (a.metas) {
+      store.set(K.METAS, JSON.stringify(a.metas.valor));
+      store.set(K.METAS + '_ts', String(a.metas.ts || Date.now()));
+      if ($('modalMetas').classList.contains('open')) cargarMetas();
+    }
+    store.del('cola_sync_global');
+  } catch (e) { guardarUltimoErrorSync('Sincronizar favoritos/metas (conexión)', e.message); }
+}
+
+window.addEventListener('online', () => { sincronizarNotas(); sincronizarGlobales(); });
+window.addEventListener('offline', () => estado('Sin internet · modo local', 'busy'));
+setInterval(() => { if (navigator.onLine) { sincronizarNotas(); sincronizarGlobales(); } }, 5 * 60 * 1000);
+setInterval(() => { renderLista(); actualizarCabecera(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) guardarNotaActual(); });
+window.addEventListener('pagehide', guardarNotaActual);
+
+/* =========================================================
+   METAS Y REFLEXIONES
+   ========================================================= */
+function cargarMetas() {
+  const d = store.json(K.METAS, {});
+  $('metaAplicacion').value = d.aplicacion || '';
+  $('metaPuntosClave').value = d.puntos || '';
+  $('metaReflexion').value = d.reflexion || '';
+}
+function guardarMetas() {
+  store.set(K.METAS, JSON.stringify({
+    aplicacion: $('metaAplicacion').value, puntos: $('metaPuntosClave').value, reflexion: $('metaReflexion').value,
+    ultimaModificacion: new Date().toISOString()
+  }));
+  store.set(K.METAS + '_ts', String(Date.now()));
+  marcarGlobalPendiente('metas');
+  $('estadoMetas').textContent = '¡Guardado!';
+  setTimeout(() => $('estadoMetas').textContent = 'Guardado en el dispositivo', 2200);
+  programarSync();
+}
+
+/* =========================================================
+   APARIENCIA
+   ========================================================= */
+const TEMAS = {
+  papel:   { n: 'Papel',   c: '#2d4a8a', sw: 'linear-gradient(135deg,#fffdf6 50%,#2d4a8a 50%)' },
+  pizarra: { n: 'Pizarra', c: '#1a1f29', sw: 'linear-gradient(135deg,#12151c 50%,#6fb3ff 50%)' },
+  menta:   { n: 'Menta',   c: '#168a6e', sw: 'linear-gradient(135deg,#d3e7df 50%,#168a6e 50%)' },
+  lavanda: { n: 'Lavanda', c: '#6a4fc9', sw: 'linear-gradient(135deg,#ddd7f0 50%,#6a4fc9 50%)' },
+  rosa:    { n: 'Rosa',    c: '#b02a63', sw: 'linear-gradient(135deg,#f7dbe6 50%,#b02a63 50%)' }
+};
+const FUENTES = { 'font-sans': 'var(--sans)', 'font-serif': 'var(--serif)', 'font-mono': 'var(--mono)' };
+const TAMANOS = [['text-xs', 13, 'Pequeño'], ['text-sm', 15, 'Normal'], ['text-base', 17, 'Mediano'], ['text-lg', 20, 'Grande']];
+
+function aplicarTema(t) {
+  if (!TEMAS[t]) t = 'papel';
+  document.documentElement.dataset.theme = t;
+  store.set(K.TEMA, t);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', TEMAS[t].c);
+  $$('#swatches .sw').forEach(b => b.classList.toggle('on', b.dataset.v === t));
+}
+function aplicarTipografia() {
+  let f = store.get(K.FUENTE); if (!FUENTES[f]) f = 'font-sans';
+  let tam = store.get(K.TAM); let fila = TAMANOS.find(x => x[0] === tam); if (!fila) fila = TAMANOS[2];
+  document.documentElement.style.setProperty('--note-font', FUENTES[f]);
+  document.documentElement.style.setProperty('--note-size', fila[1] + 'px');
+  $$('#segFuente button').forEach(b => b.classList.toggle('on', b.dataset.v === f));
+  $('tamLabel').textContent = fila[2];
+}
+function cambiarTamano(delta) {
+  const actual = TAMANOS.findIndex(x => x[0] === store.get(K.TAM)); 
+  const i = Math.max(0, Math.min(TAMANOS.length - 1, (actual < 0 ? 2 : actual) + delta));
+  store.set(K.TAM, TAMANOS[i][0]); aplicarTipografia();
+}
+function construirSwatches() {
+  $('swatches').innerHTML = Object.keys(TEMAS).map(k =>
+    '<button class="sw" data-act="tema" data-v="' + k + '" title="' + TEMAS[k].n + '" style="background:' + TEMAS[k].sw + '"></button>').join('');
+}
+function cargarNombre() {
+  const n = store.get(K.NOMBRE) || '';
+  $('inputNombre').value = n;
+  $('owner').textContent = n ? 'Cuaderno de ' + n : 'Cuaderno de asamblea';
+}
+function cargarImagen() {
+  const img = store.get(K.IMG);
+  $('imgBienvenida').src = img || '';
+  $('imgBienvenida').classList.toggle('hidden', !img);
+  $('welcomeEmpty').classList.toggle('hidden', !!img);
+  $('miQuitarImg').classList.toggle('hidden', !img);
+}
+function alternarEnfoque() {
+  const on = !document.body.classList.contains('focus');
+  document.body.classList.toggle('focus', on);
+  $('btnSalirFocus').classList.toggle('hidden', !on);
+  closeSheets();
+}
+
+/* =========================================================
+   VENTANAS
+   ========================================================= */
+function openLayer(id) { $(id).classList.add('open'); }
+function closeSheets() { $$('.backdrop').forEach(b => b.classList.remove('open')); }
+$$('.backdrop').forEach(b => b.addEventListener('click', e => { if (e.target === b && !b.dataset.lock) { if (b.id === 'modalMetas') guardarMetas(); closeSheets(); } }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
+
+/* =========================================================
+   PROGRAMAS: tarjetas, añadir, revisar, borrar
+   ========================================================= */
+window.miniaturas = {};
+function renderGridProgramas() {
+  const grid = $('gridProgramas'); if (!grid) return;
+  const l = obtenerListaAsambleas();
+  grid.innerHTML = l.map(a => {
+    const on = a.id === window.asambleaActiva, mini = window.miniaturas[a.id], hoy = estaAsambleaEsHoy(a.fecha);
+    return '<div class="card' + (on ? ' on' : '') + '" data-act="selProg" data-id="' + esc(a.id) + '" title="' + esc(a.nombre) + '">' +
+      '<div class="thumb">' + (mini ? '<img src="' + mini + '" alt="">' : '📄') + '</div>' +
+      '<div class="nm">' + esc(a.nombre) + '</div>' +
+      (hoy ? '<div class="here">📍 Estás en este programa</div>' : '') +
+      (on ? '<span class="tagon">Activo</span>' : '') +
+      '<div class="cbtns"><button title="Fecha de esta asamblea" data-act="editFecha" data-id="' + esc(a.id) + '">📅</button>' +
+      '<button title="Borrar este programa" data-act="delProg" data-id="' + esc(a.id) + '">🗑️</button></div></div>';
+  }).join('');
+  $('gridVacio').classList.toggle('hidden', l.length > 0);
+}
+async function abrirModalProgramas() {
+  openLayer('modalProgramas');
+  renderGridProgramas();
+  try {
+    const res = await gs('obtenerMiniaturasAsambleas');
+    if (res && res.exito && res.miniaturas) { window.miniaturas = res.miniaturas; renderGridProgramas(); }
+  } catch (e) { /* se muestran las tarjetas sin imagen */ }
+}
+function cambiarAsambleaActual(nuevoId) {
+  if (discursoActualId) guardarNotaActual();       // se guarda ANTES de cambiar de asamblea
+  window.asambleaActiva = nuevoId;
+  store.set(K.ACTIVA, nuevoId);
+  discursoActualId = null;
+  $('notas').value = '';
+  diaListado = null;
+  actualizarNombreBoton();
+  cargarDatosAsambleaActiva();
+}
+function seleccionarPrograma(id) {
+  cambiarAsambleaActual(id);
+  renderGridProgramas();
+  closeSheets();
+}
+async function editarFecha(id) {
+  const a = obtenerListaAsambleas().find(x => x.id === id);
+  const entrada = window.prompt('Fecha del primer día de esta asamblea (AAAA-MM-DD).\nSi dura varios días, pon la del viernes.\nDéjalo vacío para quitarla.', a && a.fecha ? a.fecha : '');
+  if (entrada === null) return;
+  const v = entrada.trim();
+  if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { alert('Formato no válido. Usa AAAA-MM-DD, por ejemplo 2026-06-12.'); return; }
+  try {
+    const res = await gs('actualizarFechaAsamblea', id, v);
+    if (!res || !res.exito) { alert('❌ ' + (res && res.error ? res.error : 'No se pudo actualizar la fecha.')); return; }
+    const l = obtenerListaAsambleas(); const it = l.find(x => x.id === id); if (it) it.fecha = res.fecha;
+    guardarListaAsambleas(l); renderGridProgramas(); renderLista(); toast('Fecha actualizada ✓');
+  } catch (e) { alert('❌ Error de conexión al actualizar la fecha.'); }
+}
+async function borrarAsamblea(id) {
+  const l = obtenerListaAsambleas(); const a = l.find(x => x.id === id); const nombre = a ? a.nombre : id;
+  let msg = '¿Seguro que quieres borrar «' + nombre + '»?\n\nSe eliminarán su programa y sus notas de Google Sheets (se guarda una copia oculta). Esta acción no se puede deshacer.';
+  if (l.length <= 1) msg = '⚠️ «' + nombre + '» es la única asamblea que tienes.\n\nSi la borras te quedarás sin programa hasta añadir uno nuevo. ¿Seguro?';
+  if (!confirm(msg)) return;
+  estado('Borrando asamblea…', 'busy');
+  try {
+    const res = await gs('eliminarAsamblea', id);
+    if (!res || !res.exito) { alert('❌ ' + (res && res.error ? res.error : 'No se pudo borrar.')); estado('Error al borrar', 'off'); return; }
+    guardarListaAsambleas(obtenerListaAsambleas().filter(x => x.id !== id));
+    store.del('programa_' + id);
+    store.keys().filter(k => k && k.indexOf('nota_asamblea_' + id + '_') === 0).forEach(k => store.del(k));
+    const resto = obtenerListaAsambleas();
+    if (window.asambleaActiva === id && resto.length) cambiarAsambleaActual(resto[0].id);
+    renderGridProgramas(); estado('Asamblea borrada', 'ok'); toast('🗑️ «' + (res.nombreAsamblea || nombre) + '» borrada');
+  } catch (e) { alert('❌ Error de conexión al borrar la asamblea.'); estado('Error de conexión', 'off'); }
+}
+function manejarResultadoProgramaImportado(r) {
+  if (!r || !r.exito) { alert('❌ ' + (r && r.error ? r.error : 'No se pudo obtener el programa.')); estado('Error', 'off'); return; }
+  const l = obtenerListaAsambleas();
+  l.push({ id: r.metadatoId, sheetName: r.sheetName, nombre: r.nombreAsamblea, fecha: r.fechaAsamblea || '' });
+  guardarListaAsambleas(l);
+  store.set('programa_' + r.metadatoId, JSON.stringify(r.discursos));
+  delete window.miniaturas[r.metadatoId];
+  cambiarAsambleaActual(r.metadatoId);
+  renderGridProgramas();
+  estado('Programa añadido', 'ok');
+  toast('✅ Programa «' + r.nombreAsamblea + '» añadido');
+}
+
+/* ---------- Añadir: paso a paso con revisión ---------- */
+window.vistaPrevia = null;
+function abrirVistaPrevia(r) {
+  window.vistaPrevia = { fileId: r.fileId, nombre: r.nombreSugerido || r.fileName, fecha: '', filas: JSON.parse(JSON.stringify(r.filas)) };
+  $('pvNombre').value = window.vistaPrevia.nombre;
+  $('pvFecha').value = '';
+  renderFilasPrevia();
+  closeSheets();
+  openLayer('modalPreview');
+  estado('Revisa el programa antes de guardar', 'busy');
+}
+function renderFilasPrevia() {
+  const v = window.vistaPrevia; if (!v) return;
+  let h = '';
+  for (let f = 1; f < v.filas.length; f++) {
+    const x = v.filas[f];
+    h += '<div class="pv-row">' +
+      '<input data-pv="celda" data-f="' + f + '" data-c="0" value="' + esc(x[0]) + '" placeholder="Día">' +
+      '<input data-pv="celda" data-f="' + f + '" data-c="1" value="' + esc(x[1]) + '" placeholder="Sesión">' +
+      '<input data-pv="celda" data-f="' + f + '" data-c="2" value="' + esc(x[2]) + '" placeholder="Hora">' +
+      '<button data-act="delFilaPrev" data-f="' + f + '" title="Quitar fila">🗑️</button>' +
+      '<input class="tema" data-pv="celda" data-f="' + f + '" data-c="3" value="' + esc(x[3]) + '" placeholder="Tema"></div>';
+  }
+  $('pvFilas').innerHTML = h;
+}
+document.addEventListener('input', e => {
+  const t = e.target, pv = t.dataset && t.dataset.pv; if (!pv || !window.vistaPrevia) return;
+  if (pv === 'celda') window.vistaPrevia.filas[+t.dataset.f][+t.dataset.c] = t.value;
+  else if (pv === 'nombre') window.vistaPrevia.nombre = t.value;
+  else if (pv === 'fecha') window.vistaPrevia.fecha = t.value;
+});
+async function confirmarVistaPrevia() {
+  const v = window.vistaPrevia; if (!v) return;
+  if (v.filas.length <= 1) { alert('No queda ninguna fila. Añade al menos un discurso o cancela.'); return; }
+  if (!v.nombre || !v.nombre.trim()) { alert('Ponle un nombre a la asamblea antes de guardar.'); return; }
+  estado('Guardando en Sheets…', 'busy');
+  try {
+    const r = await gs('confirmarVolcadoDePrograma', v.fileId, v.nombre, v.filas, v.fecha);
+    closeSheets(); window.vistaPrevia = null;
+    manejarResultadoProgramaImportado(r);
+  } catch (e) { alert('❌ Error de conexión al guardar en Sheets.'); estado('Error de conexión', 'off'); }
+}
+function cancelarVistaPrevia() { window.vistaPrevia = null; closeSheets(); estado('Cancelado · no se guardó nada', 'busy'); }
+
+async function extraerDeDrive() {
+  estado('Buscando el último PDF en Drive…', 'busy');
+  try {
+    const r = await gs('prepararVistaPreviaDesdeDrive');
+    if (!r || !r.exito) {
+      alert(r && r.sinNuevos ? '📂 No hay ningún PDF nuevo en Drive. Todos los de la carpeta ya están añadidos.' : '❌ ' + (r && r.error ? r.error : 'No se pudo obtener el programa de Drive.'));
+      estado(r && r.sinNuevos ? 'Sin novedades' : 'Error', r && r.sinNuevos ? 'busy' : 'off');
+      return;
+    }
+    abrirVistaPrevia(r);
+  } catch (e) { alert('Hubo un error de comunicación con Google Drive.'); estado('Error de conexión', 'off'); }
+}
+function subirPdfSeleccionado(file) {
+  if (!file) return;
+  if (!(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) { alert('Selecciona el PDF que descargaste de jw.org.'); return; }
+  estado('Subiendo PDF y leyendo con IA…', 'busy');
+  const lector = new FileReader();
+  lector.onload = async () => {
+    try {
+      const r = await gs('prepararVistaPreviaDesdeArchivo', String(lector.result).split(',')[1], file.name);
+      if (!r || !r.exito) { alert('❌ ' + (r && r.error ? r.error : 'No se pudo procesar el PDF.')); estado('Error', 'off'); return; }
+      abrirVistaPrevia(r);
+    } catch (e) { alert('Hubo un error subiendo o procesando el PDF. Comprueba tu conexión.'); estado('Error de conexión', 'off'); }
+  };
+  lector.onerror = () => { alert('No se pudo leer el archivo seleccionado.'); estado('Error al leer el archivo', 'off'); };
+  lector.readAsDataURL(file);
+}
+async function repararSeries() {
+  const sn = obtenerSheetNamePorId(window.asambleaActiva); if (!sn) return;
+  estado('Reparando series de discursos…', 'busy');
+  try {
+    const r = await gs('repararSeriesDeDiscursosEnHoja', sn);
+    if (!r || !r.exito) { alert('❌ ' + (r && r.error ? r.error : 'No se pudo reparar la hoja.')); estado('Error', 'off'); return; }
+    if (!r.cambios) { toast('✅ No había ninguna serie fusionada que reparar'); estado('Sin cambios', 'ok'); return; }
+    toast('✅ Reparado: de ' + r.filasAntes + ' a ' + r.filasDespues + ' filas');
+    store.del('programa_' + window.asambleaActiva); closeSheets(); cargarDiscursos();
+  } catch (e) { alert('❌ Error de conexión al reparar la hoja.'); estado('Error de conexión', 'off'); }
+}
+
+/* =========================================================
+   EXPORTAR (PDF) Y COPIA DE SEGURIDAD
+   ========================================================= */
+function descargarBase64(res) {
+  const a = document.createElement('a');
+  a.href = 'data:' + res.mimeType + ';base64,' + res.archivoBase64;
+  a.download = res.nombreArchivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function itemParaPdf(d) {
+  return { id: d.id, dia: d.dia || 'General', sesion: d.sesion || 'Sesión', hora: d.hora || '--:--', tema: d.tema || 'Sin tema', nota: (store.get(claveNota(d.id)) || '').trim() };
+}
+async function generarPdf(items, etiqueta) {
+  if (!navigator.onLine) { toast('Generar el PDF necesita internet'); return; }
+  estado('Generando PDF…', 'busy'); closeSheets();
+  try {
+    const res = await gs('generarPdfDeTodosLosDiscursos', items);
+    if (!res || !res.exito) { alert('❌ Error al generar el PDF: ' + (res && res.error ? res.error : 'Desconocido')); estado('Error al generar el PDF', 'off'); return; }
+    descargarBase64(res); estado('PDF generado ✓', 'ok'); toast('📄 ' + etiqueta + ' descargado');
+  } catch (e) { alert('❌ Error de conexión al generar el PDF.'); estado('Error de conexión', 'off'); }
+}
+function pdfActual() {
+  guardarNotaActual();
+  const d = listaDiscursos.find(x => x.id === discursoActualId);
+  if (!d) return toast('Elige primero un discurso');
+  generarPdf([itemParaPdf(d)], 'PDF del discurso');
+}
+function pdfTodos() {
+  guardarNotaActual();
+  const items = listaDiscursos.map(itemParaPdf).filter(i => i.nota);
+  if (!items.length) return toast('⚠️ Aún no hay notas escritas');
+  generarPdf(items, 'PDF de tus notas');
+}
+
+const MARCA_JSON = '<<<DATOS_JSON>>>';
+function textoRespaldo() {
+  let t = '========================================\n     RESPALDO GLOBAL - CUADERNO DE ASAMBLEA     \n========================================\n\n';
+  const notas = {};
+  listaDiscursos.forEach(d => {
+    const n = store.get(claveNota(d.id)) || '';
+    if (n.trim()) notas[d.id] = n;
+    t += 'DÍA: ' + (d.dia || 'General') + '\nSESIÓN: ' + (d.sesion || 'Sesión') + '\nHORA: ' + (d.hora || '--:--') + '\nTEMA: ' + d.tema +
+      '\n----------------------------------------\nNOTAS:\n' + (n || '(Sin notas para este discurso)') + '\n========================================\n\n';
+  });
+  const metas = store.json(K.METAS, null);
+  if (metas) {
+    t += '========================================\n       METAS Y REFLEXIONES FINALES      \n========================================\nPUNTOS DE APLICACIÓN:\n' + (metas.aplicacion || 'Ninguno') +
+      '\n\nPUNTOS CLAVE:\n' + (metas.puntos || 'Ninguno') + '\n\nREFLEXIÓN FINAL:\n' + (metas.reflexion || 'Ninguna') + '\n========================================\n';
+  }
+  t += '\n' + MARCA_JSON + '\n' + JSON.stringify({ version: 1, asamblea: nombreAsambleaActiva(), notas: notas, metas: metas });
+  return t;
+}
+function nombreArchivoRespaldo() {
+  return 'Respaldo_' + nombreAsambleaActiva().replace(/[^a-zA-Z0-9_\- ]/g, '') + '_' + new Date().toISOString().slice(0, 10) + '.txt';
+}
+async function crearRespaldo() {
+  guardarNotaActual();
+  if (!listaDiscursos.length) return toast('No hay programa cargado para respaldar');
+  if (!navigator.onLine) return toast('La copia de seguridad necesita internet');
+  closeSheets(); estado('Creando copia en Drive…', 'busy');
+  try {
+    const r = await gs('crearRespaldoGlobalEnDrive', 'Asamblea Regional', nombreArchivoRespaldo(), textoRespaldo());
+    if (r && r.exito) { estado('Copia creada ✓', 'ok'); toast('☁️ Copia guardada en Drive', r.url); }
+    else { estado('Error al respaldar', 'off'); alert('No se pudo crear la copia.'); }
+  } catch (e) { estado('Error de conexión', 'off'); alert('Hubo un error al respaldar en Drive.'); }
+}
+async function restaurarRespaldo() {
+  if (!listaDiscursos.length) return toast('Carga primero el programa de la asamblea');
+  if (!navigator.onLine) return toast('Restaurar necesita internet');
+  const nombre = prompt('Nombre exacto del archivo de copia en Google Drive:', nombreArchivoRespaldo());
+  if (!nombre) return;
+  closeSheets(); estado('Buscando la copia…', 'busy');
+  try {
+    const r = await gs('recuperarRespaldoDeDrive', nombre.trim());
+    if (!r || !r.exito) { estado('No encontrada', 'off'); alert('❌ ' + (r && r.mensaje ? r.mensaje : 'No se encontró el archivo.')); return; }
+    const aplicadas = aplicarRespaldo(r.contenido);
+    if (!aplicadas) { estado('Nada que restaurar', 'busy'); alert('El archivo no contenía notas que coincidan con este programa.'); return; }
+    renderLista();
+    if (discursoActualId) { $('notas').value = store.get(claveNota(discursoActualId)) || ''; actualizarPalabras(); }
+    estado('Copia restaurada ✓', 'ok'); toast('♻️ ' + aplicadas + ' nota(s) restaurada(s)');
+    programarSync();
+  } catch (e) { estado('Error de conexión', 'off'); alert('Hubo un error al recuperar la copia.'); }
+}
+function aplicarRespaldo(contenido) {
+  let n = 0;
+  const poner = (id, nota) => {
+    if (!nota || !nota.trim()) return;
+    if ((store.get(claveNota(id)) || '') === nota) return;
+    store.set(claveNota(id), nota); marcarNotaComoModificada(id); n++;
+  };
+  const pos = contenido.indexOf(MARCA_JSON);
+  if (pos >= 0) {
+    try {
+      const datos = JSON.parse(contenido.slice(pos + MARCA_JSON.length).trim());
+      Object.keys(datos.notas || {}).forEach(id => { if (listaDiscursos.some(d => d.id === id)) poner(id, datos.notas[id]); });
+      if (datos.metas && !store.get(K.METAS)) { store.set(K.METAS, JSON.stringify(datos.metas)); store.set(K.METAS + '_ts', String(Date.now())); marcarGlobalPendiente('metas'); }
+      return n;
+    } catch (e) { /* si el JSON estuviera dañado, se intenta con el texto */ }
+  }
+  // Copias antiguas (solo texto): se emparejan por el tema del discurso
+  const re = /TEMA: (.*)\n-{10,}\nNOTAS:\n([\s\S]*?)\n={10,}/g; let m;
+  while ((m = re.exec(contenido)) !== null) {
+    const d = listaDiscursos.find(x => String(x.tema).trim() === m[1].trim());
+    if (d && m[2].trim() !== '(Sin notas para este discurso)') poner(d.id, m[2]);
+  }
+  return n;
+}
+
+/* =========================================================
+   CHAT CON GEMINI
+   ========================================================= */
+function toggleChat() {
+  const abierto = $('chatPane').classList.toggle('open');
+  $('app').classList.toggle('chat-open', abierto);
+  if (abierto) $('chatInput').focus();
+}
+function msgChat(clase, texto, html) {
+  const d = document.createElement('div'); d.className = 'msg ' + clase;
+  if (html) d.innerHTML = texto; else d.textContent = texto;
+  $('chatMsgs').appendChild(d); $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+  return d;
+}
+async function enviarChat() {
+  const q = $('chatInput').value.trim(); if (!q) return;
+  guardarNotaActual();
+  msgChat('me', q); $('chatInput').value = '';
+  if (!navigator.onLine) return msgChat('err', 'Necesitas internet para hablar con Gemini.');
+  const notas = listaDiscursos.map(d => ({ dia: d.dia, sesion: d.sesion, hora: d.hora, tema: d.tema, nota: (store.get(claveNota(d.id)) || '').trim() })).filter(x => x.nota);
+  const datos = { asamblea: nombreAsambleaActiva(), programa: listaDiscursos.map(d => ({ dia: d.dia, sesion: d.sesion, hora: d.hora, tema: d.tema })), notas: notas, metas: store.json(K.METAS, null) };
+  const cargando = msgChat('bot', 'Gemini está pensando…');
+  try {
+    const r = await gs('consultarGeminiPrograma', q, datos);
+    cargando.remove();
+    if (r && r.exito) msgChat('bot', esc(r.respuesta).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'), true);
+    else msgChat('err', '❌ No se pudo procesar la consulta. ' + (r && r.mensaje ? r.mensaje : ''));
+  } catch (e) { cargando.remove(); msgChat('err', '❌ Error de conexión: ' + e.message); }
+}
+$('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') enviarChat(); });
+
+/* =========================================================
+   OTRAS ACCIONES
+   ========================================================= */
+function abrirWOL() {
+  const ta = $('notas');
+  let q = '';
+  if (ta && !$('editor').classList.contains('hidden') && ta.selectionEnd > ta.selectionStart) q = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
+  if (!q) q = termino.trim();
+  window.open(q ? 'https://wol.jw.org/es/wol/s/r4/lp-s?q=' + encodeURIComponent(q) : 'https://wol.jw.org/es/', '_blank');
+}
+function borrarLocal() {
+  if (!confirm('⚠️ ¿Borrar TODOS los datos de este dispositivo?\n\nSe eliminarán las notas que no se hayan sincronizado, tus ajustes y la caché. Lo que ya está en Google Sheets no se toca.')) return;
+  try { localStorage.clear(); } catch (e) {}
+  location.reload();
+}
+
+/* =========================================================
+   REPARTIDOR DE ACCIONES (data-act)
+   ========================================================= */
+const acts = {
+  openProgramas() { closeSheets(); abrirModalProgramas(); },
+  openLista() { openLayer('sheetLista'); renderLista(); },
+  openCompleto() { closeSheets(); abrirProgramaCompleto(); },
+  pcDia(b) { diaPC = b.dataset.dia; renderProgramaCompleto(); },
+  openMenu() { cargarNombre(); aplicarTema(store.get(K.TEMA)); aplicarTipografia(); cargarImagen(); openLayer('sheetMenu'); },
+  close() { closeSheets(); },
+  prev() { navegar(-1); }, next() { navegar(1); },
+  favActual() { if (discursoActualId) toggleFavorito(discursoActualId); else toast('Elige primero un discurso'); },
+  fav(b) { toggleFavorito(b.dataset.id); },
+  soloFav() { soloFav = !soloFav; renderLista(); },
+  irAhora() { if (discursoEnDirectoId) seleccionarDiscurso(discursoEnDirectoId); },
+  dia(b) { diaListado = b.dataset.dia; renderLista(); },
+  toggleChat, enviarChat,
+  verErrorSync() { alert(ultimoErrorSync ? 'Detalle del último problema de sincronización:\n\n' + ultimoErrorSync : 'No hay ningún error registrado.\nEstado actual: ' + $('estadoConexion').textContent); },
+  wol: abrirWOL,
+  selProg(b) { seleccionarPrograma(b.dataset.id); },
+  editFecha(b) { editarFecha(b.dataset.id); },
+  delProg(b) { borrarAsamblea(b.dataset.id); },
+  jwOrg() { window.open('https://www.jw.org/es/biblioteca/programas/', '_blank'); estado('Descarga el PDF y súbelo a tu carpeta de Drive', 'busy'); },
+  extraerDrive: extraerDeDrive,
+  reparar: repararSeries,
+  confirmarPreview: confirmarVistaPrevia, cancelarPreview: cancelarVistaPrevia,
+  delFilaPrev(b) { if (window.vistaPrevia) { window.vistaPrevia.filas.splice(+b.dataset.f, 1); renderFilasPrevia(); } },
+  openMetas() { closeSheets(); cargarMetas(); openLayer('modalMetas'); },
+  closeMetas() { guardarMetas(); closeSheets(); },
+  guardarMetas,
+  crearRespaldo, restaurarRespaldo, pdfActual, pdfTodos,
+  sincronizar() { closeSheets(); if (!navigator.onLine) return toast('Sin internet: se sincronizará al volver la conexión'); guardarNotaActual(); cargarDiscursos().then(() => toast('🔄 Todo sincronizado')); },
+  borrarLocal,
+  focus: alternarEnfoque,
+  tema(b) { aplicarTema(b.dataset.v); },
+  fuente(b) { store.set(K.FUENTE, b.dataset.v); aplicarTipografia(); },
+  tamMenos() { cambiarTamano(-1); }, tamMas() { cambiarTamano(1); },
+  quitarImagen() { store.del(K.IMG); cargarImagen(); }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (b && acts[b.dataset.act]) { e.preventDefault(); acts[b.dataset.act](b, e); return; }
+  const fila = e.target.closest('.row[data-id], .pc-item[data-id]');
+  if (fila) seleccionarDiscurso(fila.dataset.id);
+});
+
+/* =========================================================
+   INICIO
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  construirSwatches();
+  construirListHost($('listHostSide'));
+  construirListHost($('listHostStrip'));
+  construirListHost($('listHostSheet'));
+  cargarNombre();
+  aplicarTema(store.get(K.TEMA));
+  aplicarTipografia();
+  cargarImagen();
+
+  $('notas').addEventListener('input', () => { ultimaEscritura = Date.now(); actualizarPalabras(); guardarNotaActual(); });
+  $('inputNombre').addEventListener('input', e => { store.set(K.NOMBRE, e.target.value.trim() || 'Asistente'); $('owner').textContent = e.target.value.trim() ? 'Cuaderno de ' + e.target.value.trim() : 'Cuaderno de asamblea'; });
+  $('inputImagen').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const l = new FileReader();
+    l.onload = ev => { store.set(K.IMG, ev.target.result); cargarImagen(); toast('Imagen guardada ✓'); };
+    l.readAsDataURL(f); e.target.value = '';
+  });
+  $('inputPdf').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; subirPdfSeleccionado(f); });
+
+  renderLista();
+  actualizarCabecera();
+  inicializarSelectorAsambleas();
+});
+</script>
 </body>
 </html>
