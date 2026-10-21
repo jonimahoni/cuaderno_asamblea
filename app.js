@@ -35,3 +35,11 @@ function createRunner(successFn, failureFn) {
 }
 
 window.google = { script: { run: createRunner() } };
+// Registro del service worker (ruta relativa: la web vive en /cuaderno_asamblea/)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js")
+      .then(reg => console.log("SW registrado:", reg.scope))
+      .catch(err => console.error("Error registrando SW:", err));
+  });
+}
