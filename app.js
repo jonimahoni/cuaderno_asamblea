@@ -19,8 +19,10 @@ window.google = {
       __call: function(fnName, args) {
         fetch(APPS_SCRIPT_URL, {
           method: "POST",
-          body: JSON.stringify({ function: fnName, arguments: args }),
-          muteHttpExceptions: true
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8" // <-- Vital para evitar bloqueos CORS
+          },
+          body: JSON.stringify({ function: fnName, arguments: args })
         })
         .then(response => response.text())
         .then(text => {
