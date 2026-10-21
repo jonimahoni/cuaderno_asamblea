@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi App Offline</title>
+    <!-- Tailwind CSS para diseño rápido y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-6">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-md p-6">
+        <div id="estado-conexion" class="mb-4 p-2 text-center text-sm rounded font-semibold"></div>
+        
+        <h1 class="text-xl font-bold mb-4">Gestor Offline Sheets</h1>
+        
+        <!-- Formulario de ejemplo -->
+        <form id="mi-form" class="space-y-3">
+            <input type="text" id="campo1" placeholder="Dato importante" required class="w-full p-2 border rounded">
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded font-semibold">Guardar</button>
+        </form>
+
+        <div class="mt-6">
+            <h2 class="font-bold text-gray-700">Registros locales:</h2>
+            <div id="lista-datos" class="mt-2 space-y-2 text-sm"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
