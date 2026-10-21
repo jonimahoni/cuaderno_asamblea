@@ -1,4 +1,4 @@
-const CACHE = 'cuaderno-v2';
+const CACHE = 'cuaderno-v3';
 const ARCHIVOS = ['./', './index.html', './app.js', './manifest.json'];
 
 self.addEventListener('install', e => {
