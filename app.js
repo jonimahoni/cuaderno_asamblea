@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZ0_WRuym0zVc4_P0FVMyC-PV_IG_qPZH9Zr93rPW6Je8odm6kgqYEMZN3B-1C9Z_6/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwoX7guRze-f2HH-fRReTVGt3vghO3gsQhDIwpcWXQYxwSGjtyduWcXTwxJU7ajUVa7/exec";
 
 function createRunner(successFn, failureFn) {
   return new Proxy({}, {
